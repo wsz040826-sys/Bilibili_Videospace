@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>Bilibili工作台日志</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 12px/1.6 Consolas, "Courier New", monospace; margin: 0; padding: 12px; background: #18191c; color: #d7dae0; }
+    @media (prefers-color-scheme: light) { body { background: #f6f7f8; color: #1f2329; } }
+    .bar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+    button { padding: 5px 12px; cursor: pointer; border-radius: 6px; border: 1px solid #555; background: #23262b; color: inherit; }
+    button:hover { background: #2c3036; }
+    #meta { color: #9499a0; }
+    pre { white-space: pre-wrap; word-break: break-all; margin: 0; }
+    #count { color: #9499a0; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <button id="refresh">刷新</button>
+    <button id="download">下载日志</button>
+    <button id="clear">清空日志</button>
+    <span id="meta"></span>
+    <span id="count"></span>
+  </div>
+  <h3 style="margin:14px 0 6px;font-size:13px;color:#9499a0">诊断</h3>
+  <pre id="diag"></pre>
+  <h3 style="margin:14px 0 6px;font-size:13px;color:#9499a0">日志</h3>
+  <pre id="logs"></pre>
+  <script src="debug.js"></script>
+</body>
+</html>

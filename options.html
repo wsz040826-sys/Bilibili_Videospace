@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>Bilibili工作台设置</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font: 14px/1.7 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      padding: 20px 24px; max-width: 640px; margin: 0 auto;
+      background: #fff; color: #1f2329;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #18191c; color: #e5e6e8; }
+      .hint { color: #9499a0; }
+      input, select, button { background: #23262b; color: #e5e6e8; border-color: #3a3f46; }
+      h1, h2 { color: #e5e6e8; }
+      .card { background: #202329; border-color: #2c3036; }
+    }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    h2 { font-size: 14px; margin: 0 0 10px; }
+    .hint { color: #646a73; font-size: 12px; }
+    .card { border: 1px solid #e3e5e7; border-radius: 10px; padding: 14px 16px; margin: 14px 0; }
+    .row { margin: 12px 0; }
+    label { display: block; margin-bottom: 4px; }
+    input[type="text"], input[type="number"], select { width: 100%; max-width: 360px; padding: 5px 8px; box-sizing: border-box; border: 1px solid #c9cdd4; border-radius: 6px; }
+    input[type="checkbox"] { transform: scale(1.1); margin-right: 6px; }
+    button { padding: 6px 14px; border: 1px solid #c9cdd4; border-radius: 6px; cursor: pointer; }
+    button.primary { background: #fb7299; border-color: #fb7299; color: #fff; }
+    #saved { color: #2e9e44; margin-left: 8px; display: none; }
+    .inline { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  </style>
+</head>
+<body>
+  <h1>Bilibili工作台设置</h1>
+  <div class="hint">修改后点保存，立即生效。</div>
+
+  <div class="card">
+    <h2>外观</h2>
+    <div class="row">
+      <label>左侧文字</label>
+      <input type="text" id="brandText" maxlength="24" placeholder="工作台">
+    </div>
+    <div class="row">
+      <label>标签宽度模式</label>
+      <select id="mode">
+        <option value="auto">按标题宽度自适应（有最大宽度）</option>
+        <option value="fixed">固定宽度</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>自适应模式：单个标签最大宽度（px）</label>
+      <input type="number" id="autoMax" min="60" max="600" step="10">
+    </div>
+    <div class="row">
+      <label>固定模式：每个标签宽度（px）</label>
+      <input type="number" id="fixedW" min="60" max="600" step="10">
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="hideInWebFullscreen"> B站“网页全屏”模式下隐藏工作台标签栏</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>快捷键</h2>
+    <div class="row">
+      <label>关闭当前虚拟标签页（默认 Alt+W）</label>
+      <input type="text" id="closeShortcut" placeholder="Alt+W">
+    </div>
+    <div class="row">
+      <label>恢复刚刚关闭的虚拟标签页（默认 Alt+T）</label>
+      <input type="text" id="restoreShortcut" placeholder="Alt+T">
+    </div>
+    <div class="hint">格式：修饰键+键名，如 Alt+W、Ctrl+Shift+Q；键名用单个字母/数字。</div>
+  </div>
+
+  <div class="card">
+    <h2>页面内点击视频链接</h2>
+    <div class="row">
+      <label>在浏览器中新开标签页（工作台不拦截）</label>
+      <select id="nativeTabModifier">
+        <option value="ctrl">Ctrl / Cmd + 点击</option>
+        <option value="alt">Alt + 点击</option>
+        <option value="shift">Shift + 点击</option>
+        <option value="none">不设置</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>在工作台新开虚拟标签页（不切过去）</label>
+      <select id="newTabModifier">
+        <option value="shift">Shift + 点击</option>
+        <option value="alt">Alt + 点击（Chrome 会吞掉 Alt+点击，可能不生效）</option>
+        <option value="ctrl">Ctrl / Cmd + 点击</option>
+        <option value="none">不设置</option>
+      </select>
+    </div>
+    <div class="hint">普通点击（无修饰键）：在 Bilibili 页面内直接切换，并替换当前虚拟标签。</div>
+  </div>
+
+  <div class="card">
+    <h2>调试</h2>
+    <div class="row">
+      <label><input type="checkbox" id="debug"> 开启 debug 模式（记录日志，可在标签栏的“日志”里导出）</label>
+    </div>
+  </div>
+
+  <div class="row inline">
+    <button class="primary" id="save">保存</button>
+    <span id="saved">已保存</span>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

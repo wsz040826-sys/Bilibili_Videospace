@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>Bilibili工作台</title>
+  <style>
+    :root { color-scheme: dark; --bar-h: 30px; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: #141519; color: #e5e6e8; }
+    body { display: flex; flex-direction: column; font: 12px/1.4 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .topbar { display: flex; align-items: center; gap: 6px; height: var(--bar-h); padding: 0 10px; background: #18191c; flex: 0 0 auto; }
+    .brand { color: #9499a0; font-size: 11px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .spacer { flex: 1; }
+    .tool { color: #9499a0; cursor: pointer; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+    .tool:hover { background: #2c3036; color: #e5e6e8; }
+    .main { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { width: 640px; max-width: calc(100vw - 60px); border-radius: 14px; padding: 28px 32px; background: #23262b; box-shadow: 0 20px 60px #000a; }
+    .title { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+    .sub { color: #9499a0; margin-bottom: 16px; }
+    .row { display: flex; gap: 10px; }
+    .row input { flex: 1 1 auto; padding: 9px 12px; border-radius: 8px; border: 1px solid #3a3f46; background: #18191c; color: #e5e6e8; font: inherit; outline: none; }
+    .row input:focus { border-color: #fb7299; }
+    .row button { padding: 9px 18px; border-radius: 8px; border: none; background: #fb7299; color: #fff; cursor: pointer; font: inherit; }
+    .recent { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+    .recent::-webkit-scrollbar { width: 8px; }
+    .recent::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 4px; }
+    .recent .item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 6px; background: #1d2024; cursor: pointer; }
+    .recent .item:hover { background: #2c3036; }
+    .recent .t { overflow: hidden; white-space: normal; word-break: break-word; }
+    .recent .hint { color: #9499a0; }
+
+    .modal-back { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.45); z-index: 100; }
+    .modal-back.show { display: flex; }
+    .modal { width: 560px; max-width: calc(100vw - 40px); max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; background: #23262b; color: #e5e6e8; box-shadow: 0 10px 40px #0008; font-size: 13px; }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; font-size: 16px; font-weight: 600; border-bottom: 1px solid rgba(128,128,128,.25); }
+    .modal-close { cursor: pointer; color: #9499a0; font-size: 20px; line-height: 1; }
+    .modal-body { padding: 12px 18px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+    .modal-body::-webkit-scrollbar { width: 8px; }
+    .modal-body::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 4px; }
+    .field { margin: 12px 0; }
+    .field label { display: block; margin-bottom: 4px; }
+    .modal input[type="text"], .modal input[type="number"], .modal select { width: 100%; box-sizing: border-box; padding: 5px 8px; border-radius: 6px; border: 1px solid #3a3f46; background: #18191c; color: #e5e6e8; font: inherit; }
+    .modal-foot { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid rgba(128,128,128,.25); }
+    .modal-foot button { padding: 6px 16px; border-radius: 6px; border: 1px solid #3a3f46; background: #2c3036; color: #e5e6e8; cursor: pointer; }
+    .modal-foot button.primary { background: #fb7299; border-color: #fb7299; color: #fff; }
+    #saved { color: #2e9e44; display: none; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="brand" id="brand">工作台</span>
+    <span class="spacer"></span>
+    <span class="tool" id="opts">设置</span>
+  </div>
+  <div class="main">
+    <div class="card">
+      <div class="title">Bilibili工作台</div>
+      <div class="sub">输入 BV 号或 Bilibili 视频链接，开始使用</div>
+      <div class="row">
+        <input id="input" type="text" placeholder="例如 BV... 或 https://www.bilibili.com/video/BV...">
+        <button id="open">打开</button>
+      </div>
+      <div class="recent" id="recent"></div>
+    </div>
+  </div>
+
+  <div class="modal-back" id="modalBack">
+    <div class="modal">
+      <div class="modal-head"><span>工作台设置</span><span class="modal-close" id="modalClose">×</span></div>
+      <div class="modal-body">
+        <div class="field"><label>左侧文字</label><input type="text" id="mBrand" maxlength="24"></div>
+        <div class="field"><label>标签宽度模式</label><select id="mMode"><option value="auto">按标题自适应（有最大宽度）</option><option value="fixed">固定宽度</option></select></div>
+        <div class="field"><label>按标题自适应模式：单个标签最大宽度（px）</label><input type="number" id="mAutoMax" min="60" max="600" step="10"></div>
+        <div class="field"><label>固定宽度模式：每个标签宽度（px）</label><input type="number" id="mFixedW" min="60" max="600" step="10"></div>
+        <div class="field"><label>关闭当前虚拟标签（快捷键）</label><input type="text" id="mCloseShortcut" placeholder="Alt+W"></div>
+        <div class="field"><label>恢复刚关闭的虚拟标签（快捷键）</label><input type="text" id="mRestoreShortcut" placeholder="Alt+T"></div>
+        <div class="field"><label>浏览器原生打开（工作台不拦截）</label><select id="mNativeMod"><option value="ctrl">Ctrl / Cmd + 点击</option><option value="shift">Shift + 点击</option><option value="alt">Alt + 点击（Chrome 会吞掉）</option><option value="none">不设置</option></select></div>
+        <div class="field"><label>在工作台新开虚拟标签（不切过去）</label><select id="mNewMod"><option value="shift">Shift + 点击</option><option value="ctrl">Ctrl / Cmd + 点击</option><option value="alt">Alt + 点击（Chrome 会吞掉）</option><option value="none">不设置</option></select></div>
+        <div class="field"><label>同时收进多个视频时</label><select id="mAbsorb"><option value="last">切换到最后一个打开的视频</option><option value="first">保持第一个打开的视频</option></select></div>
+        <div class="field"><label>关闭全部虚拟标签后</label><select id="mAfterCloseAll"><option value="empty">显示空工作台界面</option><option value="closeTab">关闭本标签页</option></select></div>
+        <div class="field"><label><input type="checkbox" id="mAutoRestore"> 下次启动工作台时自动恢复上次未关闭的虚拟标签页</label></div>
+        <div class="field"><label><input type="checkbox" id="mHideFs"> B站“网页全屏”时隐藏工作台标签栏</label></div>
+        <div class="field"><label><input type="checkbox" id="mDebug"> debug 模式（标签栏出现“日志”）</label></div>
+      </div>
+      <div class="modal-foot">
+        <button class="primary" id="mSave">保存</button>
+        <button id="mCancel">取消</button>
+        <span id="saved">已保存</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="blank.js"></script>
+</body>
+</html>
