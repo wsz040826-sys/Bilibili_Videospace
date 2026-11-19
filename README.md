@@ -35,6 +35,8 @@
 - 🎨 **可配置**：标签栏文字/配色、标签宽度模式、点击修饰键、快捷键、网页全屏时隐藏标签栏、debug 日志等。
 - 🧩 **兼容 B站 生态**：页面是真的 B站 页面，所以 B站 自身的所有界面/交互，以及各种 B站 相关扩展（如 BewlyBewly）都不受影响。
 
+![垂直标签页](assets/screenshot-drawer.png)
+
 ![空白工作台](assets/screenshot-blank.png)
 
 ## 性能数据
