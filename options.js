@@ -11,6 +11,8 @@ const DEFAULTS = {
   nativeTabModifier: 'ctrl',
   newTabModifier: 'shift',
   hideInWebFullscreen: true,
+  barTheme: 'page',
+  barColor: '#18191c',
   debug: false,
 };
 
@@ -21,6 +23,9 @@ async function load() {
   document.getElementById('mode').value = s.tabWidthMode;
   document.getElementById('autoMax').value = s.tabWidthAutoMax;
   document.getElementById('fixedW').value = s.tabWidthFixed;
+  document.getElementById('barTheme').value = s.barTheme || 'page';
+  document.getElementById('barColor').value = s.barColor || '#18191c';
+  syncColorEnabled();
   document.getElementById('hideInWebFullscreen').checked = !!s.hideInWebFullscreen;
   document.getElementById('closeShortcut').value = s.closeShortcut;
   document.getElementById('restoreShortcut').value = s.restoreShortcut;
@@ -35,13 +40,23 @@ function normalizeShortcut(v, fallback) {
   return s;
 }
 
+function syncColorEnabled() {
+  document.getElementById('barColor').disabled = document.getElementById('barTheme').value !== 'fixed';
+}
+document.getElementById('barTheme').addEventListener('change', syncColorEnabled);
+
 document.getElementById('save').addEventListener('click', async () => {
+  // 这个设置页只维护部分字段（其余在页内设置弹窗里），保存时保留已有字段，避免把它们清掉
+  const got = await chrome.storage.sync.get(SETTINGS_KEY);
   const s = {
+    ...(got[SETTINGS_KEY] || {}),
     brandText: String(document.getElementById('brandText').value || '').trim() || '工作台',
     tabWidthMode: document.getElementById('mode').value === 'fixed' ? 'fixed' : 'auto',
     tabWidthAutoMax: Math.min(600, Math.max(60, Number(document.getElementById('autoMax').value) || 220)),
     tabWidthFixed: Math.min(600, Math.max(60, Number(document.getElementById('fixedW').value) || 140)),
     hideInWebFullscreen: document.getElementById('hideInWebFullscreen').checked,
+    barTheme: document.getElementById('barTheme').value,
+    barColor: /^#[0-9a-f]{6}$/i.test(document.getElementById('barColor').value) ? document.getElementById('barColor').value : '#18191c',
     closeShortcut: normalizeShortcut(document.getElementById('closeShortcut').value, 'Alt+W'),
     restoreShortcut: normalizeShortcut(document.getElementById('restoreShortcut').value, 'Alt+T'),
     nativeTabModifier: document.getElementById('nativeTabModifier').value,

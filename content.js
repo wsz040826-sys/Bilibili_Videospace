@@ -22,6 +22,8 @@
     nativeTabModifier: 'ctrl', // 浏览器原生打开、工作台不拦截
     newTabModifier: 'shift',     // 在工作台新开虚拟标签（不切过去）
     hideInWebFullscreen: true, // B站“网页全屏”时隐藏工作台标签栏
+    barTheme: 'page',          // 标签栏配色：'page' 跟随当前页面 / 'system' 跟随浏览器深浅色 / 'fixed' 固定颜色
+    barColor: '#18191c',       // 'fixed' 模式下使用的颜色
     debug: false,
     absorbSwitch: 'first',     // 同时收进多个视频：'last' 切到最后一个 / 'first' 保持第一个
     afterCloseAll: 'empty',    // 关完所有虚拟标签后：'empty' 显示空工作台 / 'closeTab' 关闭本页
@@ -68,29 +70,30 @@
       .bar {
         display: flex; align-items: center; gap: 6px;
         height: var(--bili-ws-bar-h, 36px); box-sizing: border-box; padding: 0 10px;
-        background: #18191c; color: #e5e6e8;
+        background: var(--ws-bar-bg, #18191c); color: var(--ws-fg, #e5e6e8);
+        border-bottom: 1px solid var(--ws-bar-border, transparent);
         font: 12px/1.4 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
       }
-      .brand { color: #9499a0; font-size: 11px; padding-right: 6px; flex: 0 0 auto; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .brand { color: var(--ws-muted, #9499a0); font-size: 11px; padding-right: 6px; flex: 0 0 auto; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .tabs { display: flex; gap: 6px; flex: 1 1 auto; min-width: 0; overflow: hidden; }
       .tab {
         display: inline-flex; align-items: center; gap: 6px;
         height: 24px; padding: 0 8px; border-radius: 5px;
-        background: #23262b; color: #e5e6e8; cursor: pointer;
+        background: var(--ws-tab-bg, #23262b); color: var(--ws-fg, #e5e6e8); cursor: pointer;
         flex: 0 1 auto; min-width: 44px; border: 1px solid transparent;
         overflow: hidden;
       }
-      .tab:hover { background: #2c3036; }
-      .tab.active { border-color: #fb7299; background: #33232a; }
+      .tab:hover { background: var(--ws-tab-hover, #2c3036); }
+      .tab.active { border-color: var(--ws-accent, #fb7299); background: var(--ws-tab-active-bg, #33232a); }
       .tab .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
-      .tab .close { color: #7d838c; font-size: 14px; line-height: 1; padding: 0 1px; flex: 0 0 auto; }
-      .tab .close:hover { color: #fb7299; }
-      .empty { color: #6b7078; font-size: 11px; white-space: nowrap; }
+      .tab .close { color: var(--ws-close, #7d838c); font-size: 14px; line-height: 1; padding: 0 1px; flex: 0 0 auto; }
+      .tab .close:hover { color: var(--ws-accent, #fb7299); }
+      .empty { color: var(--ws-empty, #6b7078); font-size: 11px; white-space: nowrap; }
       .tool {
-        flex: 0 0 auto; color: #9499a0; cursor: pointer;
+        flex: 0 0 auto; color: var(--ws-muted, #9499a0); cursor: pointer;
         padding: 2px 6px; border-radius: 4px; font-size: 11px;
       }
-      .tool:hover { background: #2c3036; color: #e5e6e8; }
+      .tool:hover { background: var(--ws-tab-hover, #2c3036); color: var(--ws-fg, #e5e6e8); }
       .panel {
         position: fixed; top: 44px; right: 12px; width: 420px; max-height: 70vh;
         overflow: auto; background: #0f1115; color: #d7dae0;
@@ -111,6 +114,10 @@
       .field label { display: block; margin-bottom: 4px; }
       .field .hint { color: #9499a0; font-size: 11px; margin-top: 2px; }
       .modal input[type="text"], .modal input[type="number"], .modal select { width: 100%; box-sizing: border-box; padding: 5px 8px; border-radius: 6px; border: 1px solid #c9cdd4; background: #fff; color: inherit; font: inherit; }
+      .modal input[type="color"] { width: 46px; height: 30px; padding: 0; border: 1px solid #c9cdd4; border-radius: 6px; background: none; flex: 0 0 auto; cursor: pointer; }
+      .modal input[type="color"]:disabled { opacity: .45; cursor: default; }
+      .modal .row-inline { display: flex; gap: 8px; align-items: center; }
+      .modal.dark input[type="color"] { border-color: #3a3f46; }
       .modal.dark input[type="text"], .modal.dark input[type="number"], .modal.dark select { background: #18191c; border-color: #3a3f46; color: #e5e6e8; }
       .modal-foot { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid rgba(128,128,128,.25); }
       .modal-foot button { padding: 6px 16px; border-radius: 6px; border: 1px solid #c9cdd4; background: #f2f3f5; color: #1f2329; cursor: pointer; }
@@ -135,6 +142,7 @@
           <div class="field"><label>标签宽度模式</label><select id="mMode"><option value="auto">按标题自适应（有最大宽度）</option><option value="fixed">固定宽度</option></select></div>
           <div class="field"><label>按标题自适应模式：单个标签最大宽度（px）</label><input type="number" id="mAutoMax" min="60" max="600" step="10"></div>
           <div class="field"><label>固定宽度模式：每个标签宽度（px）</label><input type="number" id="mFixedW" min="60" max="600" step="10"></div>
+          <div class="field"><label>标签栏颜色</label><div class="row-inline"><select id="mBarTheme"><option value="page">跟随当前页面设置</option><option value="system">跟随浏览器深浅色</option><option value="fixed">固定颜色</option></select><input type="color" id="mBarColor" title="固定颜色（仅“固定颜色”模式生效）"></div></div>
           <div class="field"><label>关闭当前虚拟标签（快捷键）</label><input type="text" id="mCloseShortcut" placeholder="Alt+W"></div>
           <div class="field"><label>恢复刚关闭的虚拟标签（快捷键）</label><input type="text" id="mRestoreShortcut" placeholder="Alt+T"></div>
           <div class="field"><label>浏览器原生打开（工作台不拦截）</label><select id="mNativeMod"><option value="ctrl">Ctrl / Cmd + 点击</option><option value="shift">Shift + 点击</option><option value="alt">Alt + 点击（Chrome 会吞掉）</option><option value="none">不设置</option></select></div>
@@ -281,8 +289,118 @@
     return String(document.body.className || '').includes('webscreen-fix');
   }
 
+  // ---------- 标签栏配色 ----------
+  // 三档：跟随当前页面（B站 / BewlyBewly 的深浅色）/ 跟随浏览器深浅色 / 固定颜色（可自选，默认黑）。
+  // 注意：Chromium 没有读取浏览器“外观颜色/主题色”的 API，网页和扩展都拿不到用户选的强调色，
+  // 只能拿到 prefers-color-scheme（深/浅）。想要跟浏览器主题色一致，用“固定颜色”手选同色。
+  const THEME_COLORS = {
+    dark: {
+      '--ws-bar-bg': '#18191c',
+      '--ws-fg': '#e5e6e8',
+      '--ws-muted': '#9499a0',
+      '--ws-tab-bg': '#23262b',
+      '--ws-tab-hover': '#2c3036',
+      '--ws-tab-active-bg': '#33232a',
+      '--ws-close': '#7d838c',
+      '--ws-empty': '#6b7078',
+      '--ws-bar-border': 'transparent',
+    },
+    light: {
+      '--ws-bar-bg': '#ffffff',
+      '--ws-fg': '#18191c',
+      '--ws-muted': '#61666d',
+      '--ws-tab-bg': '#f1f2f3',
+      '--ws-tab-hover': '#e3e5e7',
+      '--ws-tab-active-bg': '#fff0f4',
+      '--ws-close': '#9499a0',
+      '--ws-empty': '#9499a0',
+      '--ws-bar-border': '#e3e5e7',
+    },
+  };
+
+  function systemPrefersDark() {
+    try { return window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return true; }
+  }
+
+  function parseRgba(str) {
+    const m = String(str || '').match(/rgba?\(([^)]+)\)/);
+    if (!m) return null;
+    const p = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
+    if (p.length < 3 || p.some((n) => Number.isNaN(n))) return null;
+    return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+  }
+
+  const colorLuminance = (c) => 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+
+  function hexToRgb(hex) {
+    const m = String(hex || '').match(/^#?([0-9a-f]{6})$/i);
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+  const rgbToHex = (c) => '#' + [c.r, c.g, c.b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+  const mixColor = (a, b, t) => ({ r: a.r + (b.r - a.r) * t, g: a.g + (b.g - a.g) * t, b: a.b + (b.b - a.b) * t });
+  const WHITE = { r: 255, g: 255, b: 255 };
+  const BLACK = { r: 0, g: 0, b: 0 };
+
+  // 固定颜色模式下，从用户选的颜色推导出一整套（正文、标签、悬停）颜色
+  function paletteFromColor(hex) {
+    const base = hexToRgb(hex) || { r: 24, g: 25, b: 28 };
+    const barBg = rgbToHex(base);
+    const dark = colorLuminance(base) < 128;
+    const toward = dark ? WHITE : BLACK;
+    return {
+      dark: true, // 只用来标记“非浅色默认调色板”，实际颜色都在下面
+      colors: {
+        '--ws-bar-bg': barBg,
+        '--ws-fg': dark ? '#f2f3f5' : '#18191c',
+        '--ws-muted': rgbToHex(mixColor(base, toward, dark ? 0.55 : 0.45)),
+        '--ws-tab-bg': rgbToHex(mixColor(base, toward, dark ? 0.10 : 0.06)),
+        '--ws-tab-hover': rgbToHex(mixColor(base, toward, dark ? 0.18 : 0.12)),
+        '--ws-tab-active-bg': rgbToHex(mixColor(base, toward, dark ? 0.24 : 0.16)),
+        '--ws-close': rgbToHex(mixColor(base, toward, dark ? 0.45 : 0.40)),
+        '--ws-empty': rgbToHex(mixColor(base, toward, dark ? 0.45 : 0.40)),
+        '--ws-bar-border': dark ? 'transparent' : 'rgba(0,0,0,.12)',
+      },
+    };
+  }
+
+  // 当前页面是不是暗色：B站暗色模式会给 html 加 bili_dark（BewlyBewly 切换主题也用这个 class），
+  // 取不到时用页面实际背景色的亮度兜底；全都透明时退化为系统设置。
+  function pageLooksDark() {
+    const de = document.documentElement;
+    const cls = (' ' + ((de && de.className) || '') + ' ' + ((document.body && document.body.className) || '') + ' ').toLowerCase();
+    if (/\s(bili_dark|dark|darkmode|dark-mode|night)\s/.test(cls)) return true;
+    for (const el of [document.body, de, document.getElementById('app')]) {
+      if (!el) continue;
+      let cs;
+      try { cs = getComputedStyle(el); } catch (e) { continue; }
+      const c = parseRgba(cs.backgroundColor);
+      if (!c || c.a < 0.5) continue;
+      return colorLuminance(c) < 128;
+    }
+    return systemPrefersDark();
+  }
+
+  function resolveBarPalette() {
+    const mode = settings.barTheme || 'page';
+    if (mode === 'fixed') return paletteFromColor(settings.barColor || '#18191c');
+    const dark = mode === 'system' ? systemPrefersDark() : pageLooksDark();
+    return { dark, colors: dark ? THEME_COLORS.dark : THEME_COLORS.light };
+  }
+
+  function applyBarTheme() {
+    const { dark, colors } = resolveBarPalette();
+    for (const k of Object.keys(colors)) hostEl.style.setProperty(k, colors[k]);
+    hostEl.dataset.theme = dark ? 'dark' : 'light';
+    // 多盖 1px 的底色要和标签栏一致，否则高分屏取整时会露出 1px 异色缝
+    hostEl.style.background = colors['--ws-bar-bg'];
+    hostEl.dataset.palette = (settings.barTheme === 'fixed') ? 'custom' : (dark ? 'dark' : 'light');
+  }
+
   function applyLayout() {
     if (disabled) return;
+    applyBarTheme();
     if (settings.hideInWebFullscreen && isWebFullscreen()) {
       hostEl.style.display = 'none';
       resetShift();
@@ -309,9 +427,9 @@
 
   function applyBarHeight() {
     const h = BAR_HEIGHT;
-    // 多盖 1px，避免高分屏取整导致标签栏与页面之间露出 1px 黑色缝隙
+    // 多盖 1px，避免高分屏取整导致标签栏与页面之间露出 1px 缝隙
     hostEl.style.height = (h + 1) + 'px';
-    hostEl.style.background = '#18191c';
+    applyBarTheme();
     hostEl.style.setProperty('--bili-ws-bar-h', h + 'px');
     document.documentElement.style.setProperty('--bili-ws-bar-h', h + 'px');
     shiftStyle.textContent = `html { scroll-padding-top: ${BAR_HEIGHT}px !important; } html body { margin-top: ${BAR_HEIGHT}px !important; }`;
@@ -670,23 +788,16 @@
 
 
   // ---------- 设置弹窗 ----------
-  function isDarkPage() {
-    try {
-      const c = getComputedStyle(document.body).backgroundColor.match(/\d+/g);
-      if (c && c.length >= 3) {
-        const lum = 0.299 * +c[0] + 0.587 * +c[1] + 0.114 * +c[2];
-        return lum < 128;
-      }
-    } catch (e) { /* ignore */ }
-    return true;
-  }
   function openSettings() {
     const m = shadow.getElementById('modal');
-    m.classList.toggle('dark', isDarkPage());
+    m.classList.toggle('dark', pageLooksDark());
     shadow.getElementById('mBrand').value = settings.brandText || '';
     shadow.getElementById('mMode').value = settings.tabWidthMode;
     shadow.getElementById('mAutoMax').value = settings.tabWidthAutoMax;
     shadow.getElementById('mFixedW').value = settings.tabWidthFixed;
+    shadow.getElementById('mBarTheme').value = settings.barTheme || 'page';
+    shadow.getElementById('mBarColor').value = settings.barColor || '#18191c';
+    shadow.getElementById('mBarColor').disabled = (settings.barTheme || 'page') !== 'fixed';
     shadow.getElementById('mCloseShortcut').value = settings.closeShortcut;
     shadow.getElementById('mRestoreShortcut').value = settings.restoreShortcut;
     shadow.getElementById('mNativeMod').value = settings.nativeTabModifier;
@@ -708,6 +819,8 @@
       tabWidthMode: shadow.getElementById('mMode').value === 'fixed' ? 'fixed' : 'auto',
       tabWidthAutoMax: Math.min(600, Math.max(60, Number(shadow.getElementById('mAutoMax').value) || 220)),
       tabWidthFixed: Math.min(600, Math.max(60, Number(shadow.getElementById('mFixedW').value) || 140)),
+      barTheme: ['page', 'system', 'fixed'].includes(shadow.getElementById('mBarTheme').value) ? shadow.getElementById('mBarTheme').value : 'page',
+      barColor: /^#[0-9a-f]{6}$/i.test(shadow.getElementById('mBarColor').value) ? shadow.getElementById('mBarColor').value : '#18191c',
       closeShortcut: String(shadow.getElementById('mCloseShortcut').value || '').trim() || 'Alt+W',
       restoreShortcut: String(shadow.getElementById('mRestoreShortcut').value || '').trim() || 'Alt+T',
       nativeTabModifier: shadow.getElementById('mNativeMod').value,
@@ -729,6 +842,10 @@
   shadow.getElementById('modalClose').addEventListener('click', closeSettings);
   shadow.getElementById('mCancel').addEventListener('click', closeSettings);
   shadow.getElementById('mSave').addEventListener('click', saveSettings);
+  // 只有“固定颜色”模式才需要选颜色
+  shadow.getElementById('mBarTheme').addEventListener('change', () => {
+    shadow.getElementById('mBarColor').disabled = shadow.getElementById('mBarTheme').value !== 'fixed';
+  });
   let modalDownOnBack = false;
   shadow.getElementById('modalBack').addEventListener('mousedown', (e) => { modalDownOnBack = e.target === shadow.getElementById('modalBack'); });
   shadow.getElementById('modalBack').addEventListener('mouseup', (e) => {
@@ -754,6 +871,7 @@
     shadowScanTick += 1;
     if (shadowScanTick % 5 === 0) { try { shiftShadowTopBars(); } catch (e) {} }
   };
+
   mo = new MutationObserver(layoutTick);
   mo.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
   const player = document.querySelector('.bpx-player-container');

@@ -4,44 +4,81 @@
   <meta charset="utf-8">
   <title>Bilibili工作台</title>
   <style>
-    :root { color-scheme: dark; --bar-h: 30px; }
+    /* 空白工作台没有 B站 页面可跟随，配色由设置里的“标签栏颜色”决定（跟随浏览器 / 固定黑色） */
+    :root {
+      color-scheme: dark;
+      --bar-h: 30px;
+      --bg: #141519;
+      --fg: #e5e6e8;
+      --muted: #9499a0;
+      --bar-bg: #18191c;
+      --bar-fg: #e5e6e8;
+      --bar-muted: #9499a0;
+      --card-bg: #23262b;
+      --input-bg: #18191c;
+      --border: #3a3f46;
+      --item-bg: #1d2024;
+      --hover: #2c3036;
+      --card-shadow: #000a;
+      --modal-shadow: #0008;
+    }
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --bg: #f6f7f8;
+      --fg: #18191c;
+      --muted: #61666d;
+      --bar-bg: #ffffff;
+      --bar-fg: #18191c;
+      --bar-muted: #61666d;
+      --card-bg: #ffffff;
+      --input-bg: #ffffff;
+      --border: #d0d3d9;
+      --item-bg: #f1f2f3;
+      --hover: #e3e5e7;
+      --card-shadow: #0002;
+      --modal-shadow: #0003;
+    }
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; background: #141519; color: #e5e6e8; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
     body { display: flex; flex-direction: column; font: 12px/1.4 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
-    .topbar { display: flex; align-items: center; gap: 6px; height: var(--bar-h); padding: 0 10px; background: #18191c; flex: 0 0 auto; }
-    .brand { color: #9499a0; font-size: 11px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar { display: flex; align-items: center; gap: 6px; height: var(--bar-h); padding: 0 10px; background: var(--bar-bg); flex: 0 0 auto; }
+    .brand { color: var(--bar-muted); font-size: 11px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .spacer { flex: 1; }
-    .tool { color: #9499a0; cursor: pointer; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
-    .tool:hover { background: #2c3036; color: #e5e6e8; }
+    .tool { color: var(--bar-muted); cursor: pointer; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+    .tool:hover { background: var(--hover); color: var(--bar-fg); }
     .main { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; padding: 24px; }
-    .card { width: 640px; max-width: calc(100vw - 60px); border-radius: 14px; padding: 28px 32px; background: #23262b; box-shadow: 0 20px 60px #000a; }
+    .card { width: 640px; max-width: calc(100vw - 60px); border-radius: 14px; padding: 28px 32px; background: var(--card-bg); box-shadow: 0 20px 60px var(--card-shadow); }
     .title { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
-    .sub { color: #9499a0; margin-bottom: 16px; }
+    .sub { color: var(--muted); margin-bottom: 16px; }
     .row { display: flex; gap: 10px; }
-    .row input { flex: 1 1 auto; padding: 9px 12px; border-radius: 8px; border: 1px solid #3a3f46; background: #18191c; color: #e5e6e8; font: inherit; outline: none; }
+    .row input { flex: 1 1 auto; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font: inherit; outline: none; }
     .row input:focus { border-color: #fb7299; }
     .row button { padding: 9px 18px; border-radius: 8px; border: none; background: #fb7299; color: #fff; cursor: pointer; font: inherit; }
     .recent { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
     .recent::-webkit-scrollbar { width: 8px; }
     .recent::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 4px; }
-    .recent .item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 6px; background: #1d2024; cursor: pointer; }
-    .recent .item:hover { background: #2c3036; }
+    .recent .item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 6px; background: var(--item-bg); cursor: pointer; }
+    .recent .item:hover { background: var(--hover); }
     .recent .t { overflow: hidden; white-space: normal; word-break: break-word; }
-    .recent .hint { color: #9499a0; }
+    .recent .hint { color: var(--muted); }
 
     .modal-back { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.45); z-index: 100; }
     .modal-back.show { display: flex; }
-    .modal { width: 560px; max-width: calc(100vw - 40px); max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; background: #23262b; color: #e5e6e8; box-shadow: 0 10px 40px #0008; font-size: 13px; }
+    .modal { width: 560px; max-width: calc(100vw - 40px); max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; background: var(--card-bg); color: var(--fg); box-shadow: 0 10px 40px var(--modal-shadow); font-size: 13px; }
     .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; font-size: 16px; font-weight: 600; border-bottom: 1px solid rgba(128,128,128,.25); }
-    .modal-close { cursor: pointer; color: #9499a0; font-size: 20px; line-height: 1; }
+    .modal-close { cursor: pointer; color: var(--muted); font-size: 20px; line-height: 1; }
     .modal-body { padding: 12px 18px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
     .modal-body::-webkit-scrollbar { width: 8px; }
+    .modal-body::-webkit-scrollbar-track { background: transparent; }
     .modal-body::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 4px; }
     .field { margin: 12px 0; }
     .field label { display: block; margin-bottom: 4px; }
-    .modal input[type="text"], .modal input[type="number"], .modal select { width: 100%; box-sizing: border-box; padding: 5px 8px; border-radius: 6px; border: 1px solid #3a3f46; background: #18191c; color: #e5e6e8; font: inherit; }
+    .modal input[type="text"], .modal input[type="number"], .modal select { width: 100%; box-sizing: border-box; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font: inherit; }
+    .modal input[type="color"] { width: 46px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: none; flex: 0 0 auto; cursor: pointer; }
+    .modal input[type="color"]:disabled { opacity: .45; cursor: default; }
+    .modal .row-inline { display: flex; gap: 8px; align-items: center; }
     .modal-foot { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid rgba(128,128,128,.25); }
-    .modal-foot button { padding: 6px 16px; border-radius: 6px; border: 1px solid #3a3f46; background: #2c3036; color: #e5e6e8; cursor: pointer; }
+    .modal-foot button { padding: 6px 16px; border-radius: 6px; border: 1px solid var(--border); background: var(--hover); color: var(--fg); cursor: pointer; }
     .modal-foot button.primary { background: #fb7299; border-color: #fb7299; color: #fff; }
     #saved { color: #2e9e44; display: none; }
   </style>
@@ -72,6 +109,7 @@
         <div class="field"><label>标签宽度模式</label><select id="mMode"><option value="auto">按标题自适应（有最大宽度）</option><option value="fixed">固定宽度</option></select></div>
         <div class="field"><label>按标题自适应模式：单个标签最大宽度（px）</label><input type="number" id="mAutoMax" min="60" max="600" step="10"></div>
         <div class="field"><label>固定宽度模式：每个标签宽度（px）</label><input type="number" id="mFixedW" min="60" max="600" step="10"></div>
+        <div class="field"><label>标签栏颜色</label><div class="row-inline"><select id="mBarTheme"><option value="page">跟随当前页面设置</option><option value="system">跟随浏览器深浅色</option><option value="fixed">固定颜色</option></select><input type="color" id="mBarColor" title="固定颜色（仅“固定颜色”模式生效）"></div></div>
         <div class="field"><label>关闭当前虚拟标签（快捷键）</label><input type="text" id="mCloseShortcut" placeholder="Alt+W"></div>
         <div class="field"><label>恢复刚关闭的虚拟标签（快捷键）</label><input type="text" id="mRestoreShortcut" placeholder="Alt+T"></div>
         <div class="field"><label>浏览器原生打开（工作台不拦截）</label><select id="mNativeMod"><option value="ctrl">Ctrl / Cmd + 点击</option><option value="shift">Shift + 点击</option><option value="alt">Alt + 点击（Chrome 会吞掉）</option><option value="none">不设置</option></select></div>

@@ -25,6 +25,9 @@
     label { display: block; margin-bottom: 4px; }
     input[type="text"], input[type="number"], select { width: 100%; max-width: 360px; padding: 5px 8px; box-sizing: border-box; border: 1px solid #c9cdd4; border-radius: 6px; }
     input[type="checkbox"] { transform: scale(1.1); margin-right: 6px; }
+    input[type="color"] { width: 46px; height: 30px; padding: 0; border: 1px solid #c9cdd4; border-radius: 6px; background: none; cursor: pointer; }
+    input[type="color"]:disabled { opacity: .45; cursor: default; }
+    @media (prefers-color-scheme: dark) { input[type="color"] { border-color: #3a3f46; } }
     button { padding: 6px 14px; border: 1px solid #c9cdd4; border-radius: 6px; cursor: pointer; }
     button.primary { background: #fb7299; border-color: #fb7299; color: #fff; }
     #saved { color: #2e9e44; margin-left: 8px; display: none; }
@@ -55,6 +58,17 @@
     <div class="row">
       <label>固定模式：每个标签宽度（px）</label>
       <input type="number" id="fixedW" min="60" max="600" step="10">
+    </div>
+    <div class="row">
+      <label>标签栏颜色</label>
+      <div class="inline">
+        <select id="barTheme">
+          <option value="page">跟随当前页面设置</option>
+          <option value="system">跟随浏览器深浅色</option>
+          <option value="fixed">固定颜色</option>
+        </select>
+        <input type="color" id="barColor" title="固定颜色（仅“固定颜色”模式生效）">
+      </div>
     </div>
     <div class="row">
       <label><input type="checkbox" id="hideInWebFullscreen"> B站“网页全屏”模式下隐藏工作台标签栏</label>
