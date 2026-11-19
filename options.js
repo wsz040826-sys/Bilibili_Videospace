@@ -8,6 +8,8 @@ const DEFAULTS = {
   brandText: '工作台',
   closeShortcut: 'Alt+W',
   restoreShortcut: 'Alt+T',
+  drawerShortcut: 'Alt+Q',
+  drawerCover: true,
   nativeTabModifier: 'ctrl',
   newTabModifier: 'shift',
   hideInWebFullscreen: true,
@@ -29,6 +31,8 @@ async function load() {
   document.getElementById('hideInWebFullscreen').checked = !!s.hideInWebFullscreen;
   document.getElementById('closeShortcut').value = s.closeShortcut;
   document.getElementById('restoreShortcut').value = s.restoreShortcut;
+  document.getElementById('drawerShortcut').value = s.drawerShortcut;
+  document.getElementById('drawerCover').checked = s.drawerCover !== false;
   document.getElementById('nativeTabModifier').value = s.nativeTabModifier;
   document.getElementById('newTabModifier').value = s.newTabModifier;
   document.getElementById('debug').checked = !!s.debug;
@@ -59,6 +63,8 @@ document.getElementById('save').addEventListener('click', async () => {
     barColor: /^#[0-9a-f]{6}$/i.test(document.getElementById('barColor').value) ? document.getElementById('barColor').value : '#18191c',
     closeShortcut: normalizeShortcut(document.getElementById('closeShortcut').value, 'Alt+W'),
     restoreShortcut: normalizeShortcut(document.getElementById('restoreShortcut').value, 'Alt+T'),
+    drawerShortcut: normalizeShortcut(document.getElementById('drawerShortcut').value, 'Alt+Q'),
+    drawerCover: document.getElementById('drawerCover').checked,
     nativeTabModifier: document.getElementById('nativeTabModifier').value,
     newTabModifier: document.getElementById('newTabModifier').value,
     debug: document.getElementById('debug').checked,

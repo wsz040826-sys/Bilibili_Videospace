@@ -19,6 +19,9 @@
     brandText: '工作台',
     closeShortcut: 'Alt+W',
     restoreShortcut: 'Alt+T',
+    drawerShortcut: 'Alt+Q',   // 打开/关闭垂直标签页抽屉
+    drawerWidth: 260,          // 抽屉宽度（px），拖拽调宽后写回
+    drawerCover: true,         // 抽屉里是否显示封面缩略图
     nativeTabModifier: 'ctrl', // 浏览器原生打开、工作台不拦截
     newTabModifier: 'shift',     // 在工作台新开虚拟标签（不切过去）
     hideInWebFullscreen: true, // B站“网页全屏”时隐藏工作台标签栏
@@ -75,7 +78,22 @@
         font: 12px/1.4 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
       }
       .brand { color: var(--ws-muted, #9499a0); font-size: 11px; padding-right: 6px; flex: 0 0 auto; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .tabs { display: flex; gap: 6px; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+      .tabs-wrap { position: relative; display: flex; align-items: center; flex: 1 1 auto; min-width: 0; }
+      .tabs { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0;
+        overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+      .tabs::-webkit-scrollbar { display: none; }
+      /* 左右边缘的渐隐与“还有几个”：只提示可滚动，不占位、不挡点击 */
+      .grad { position: absolute; top: 0; bottom: 0; width: 30px; pointer-events: none; opacity: 0; transition: opacity .12s; z-index: 1; }
+      .grad.l { left: 0; background: linear-gradient(to right, var(--ws-bar-bg, #18191c) 20%, transparent); }
+      .grad.r { right: 0; background: linear-gradient(to left, var(--ws-bar-bg, #18191c) 20%, transparent); }
+      .grad.on { opacity: 1; }
+      .cnt { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; display: none;
+        font-size: 10px; line-height: 15px; padding: 0 5px; border-radius: 8px; cursor: pointer;
+        color: var(--ws-fg, #e5e6e8); background: var(--ws-tab-bg, #23262b); border: 1px solid var(--ws-bar-border, #3a3f46); }
+      .cnt.on { display: block; }
+      .cnt.l { left: 0; }
+      .cnt.r { right: 0; }
+      .cnt:hover { background: var(--ws-tab-hover, #2c3036); }
       .tab {
         display: inline-flex; align-items: center; gap: 6px;
         height: 24px; padding: 0 8px; border-radius: 5px;
@@ -94,6 +112,52 @@
         padding: 2px 6px; border-radius: 4px; font-size: 11px;
       }
       .tool:hover { background: var(--ws-tab-hover, #2c3036); color: var(--ws-fg, #e5e6e8); }
+
+      /* 垂直标签页（覆盖式抽屉）：不推挤 B站 页面，宽度可拖拽并记忆 */
+      .drawer-back { position: fixed; inset: 0; display: none; z-index: 2147483647; }
+      .drawer-back.show { display: block; }
+      .drawer {
+        position: absolute; left: 0; top: 0; bottom: 0; width: 260px; box-sizing: border-box;
+        display: flex; flex-direction: column;
+        background: var(--ws-bar-bg, #18191c); color: var(--ws-fg, #e5e6e8);
+        border-right: 1px solid var(--ws-bar-border, #2c3036); box-shadow: 8px 0 28px #0006;
+        font: 12px/1.4 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+      .drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        padding: 9px 10px 6px; color: var(--ws-muted, #9499a0); font-size: 11px; }
+      .drawer-head b { color: var(--ws-fg, #e5e6e8); font-weight: 600; font-size: 12px; }
+      .drawer-close { cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; color: var(--ws-close, #7d838c); }
+      .drawer-close:hover { color: var(--ws-accent, #fb7299); }
+      .drawer-search { padding: 0 10px 8px; }
+      .drawer-search input { width: 100%; box-sizing: border-box; padding: 5px 8px; border-radius: 6px;
+        border: 1px solid var(--ws-bar-border, #3a3f46); background: var(--ws-tab-bg, #23262b); color: inherit; outline: none; }
+      .drawer-search input:focus { border-color: var(--ws-accent, #fb7299); }
+      .drawer-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 6px 8px; }
+      .drawer-list::-webkit-scrollbar { width: 8px; }
+      .drawer-list::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 4px; }
+      .ditem { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; cursor: pointer; }
+      .ditem:hover, .ditem.cursor { background: var(--ws-tab-hover, #2c3036); }
+      .ditem.active { background: var(--ws-tab-active-bg, #33232a); box-shadow: inset 2px 0 0 var(--ws-accent, #fb7299); }
+      .dcover { width: 40px; height: 24px; border-radius: 4px; object-fit: cover; flex: 0 0 auto; background: var(--ws-tab-bg, #23262b); }
+      .drawer-list.no-cover .dcover { display: none; }
+      .dtitle { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .dclose { flex: 0 0 auto; color: var(--ws-close, #7d838c); font-size: 14px; line-height: 1; padding: 0 2px; }
+      .dclose:hover { color: var(--ws-accent, #fb7299); }
+      .dtip { color: var(--ws-muted, #9499a0); padding: 10px 6px; font-size: 11px; }
+      .drawer-resize { position: absolute; right: -3px; top: 0; bottom: 0; width: 6px; cursor: col-resize; }
+      .drawer-modes { display: flex; gap: 4px; padding: 0 10px 8px; }
+      .dmode { flex: 1 1 0; text-align: center; padding: 3px 0; border-radius: 6px; font-size: 11px;
+        color: var(--ws-muted, #9499a0); background: var(--ws-tab-bg, #23262b); border: 1px solid transparent; cursor: pointer; }
+      .dmode:hover { color: var(--ws-fg, #e5e6e8); }
+      .dmode.on { color: var(--ws-accent, #fb7299); border-color: var(--ws-accent, #fb7299); background: var(--ws-tab-active-bg, #33232a); }
+      /* 分组头吸附在列表顶部，滚动时始终能知道当前在哪个分组 */
+      .dgroup { display: flex; align-items: center; gap: 6px; padding: 5px 6px 3px; margin-top: 2px;
+        position: sticky; top: 0; z-index: 1; background: var(--ws-bar-bg, #18191c);
+        font-size: 11px; color: var(--ws-muted, #9499a0); cursor: pointer; }
+      .dgroup:hover { color: var(--ws-fg, #e5e6e8); }
+      .dgroup .dgtoggle { width: 10px; font-size: 9px; }
+      .dgroup .dgcount { margin-left: auto; opacity: .75; }
+      .dnote { color: var(--ws-muted, #9499a0); font-size: 11px; padding: 2px 8px 8px; }
       .panel {
         position: fixed; top: 44px; right: 12px; width: 420px; max-height: 70vh;
         overflow: auto; background: #0f1115; color: #d7dae0;
@@ -129,8 +193,15 @@
       .modal-foot button.primary { background: #fb7299; border-color: #fb7299; color: #fff; }
     </style>
     <div class="bar">
+      <span class="tool" id="drawerBtn" title="垂直标签页（Alt+Q）">≡</span>
       <span class="brand" id="brand">工作台</span>
-      <span class="tabs" id="tabs"></span>
+      <span class="tabs-wrap">
+        <span class="grad l" id="gradL"></span>
+        <span class="cnt l" id="cntL"></span>
+        <span class="tabs" id="tabs"></span>
+        <span class="cnt r" id="cntR"></span>
+        <span class="grad r" id="gradR"></span>
+      </span>
       <span class="tool" id="logs">日志</span>
       <span class="tool" id="opts" title="工作台设置">⚙</span>
     </div>
@@ -145,6 +216,8 @@
           <div class="field"><label>标签栏颜色</label><div class="row-inline"><select id="mBarTheme"><option value="page">跟随当前页面设置</option><option value="system">跟随浏览器深浅色</option><option value="fixed">固定颜色</option></select><input type="color" id="mBarColor" title="固定颜色（仅“固定颜色”模式生效）"></div></div>
           <div class="field"><label>关闭当前虚拟标签（快捷键）</label><input type="text" id="mCloseShortcut" placeholder="Alt+W"></div>
           <div class="field"><label>恢复刚关闭的虚拟标签（快捷键）</label><input type="text" id="mRestoreShortcut" placeholder="Alt+T"></div>
+          <div class="field"><label>垂直标签页（快捷键）</label><input type="text" id="mDrawerShortcut" placeholder="Alt+Q"></div>
+          <div class="field"><label><input type="checkbox" id="mDrawerCover"> 垂直标签页显示封面缩略图</label><div class="hint">用 B 站 CDN 的 160×96 缩略图，几十个标签也只占几 MB。</div></div>
           <div class="field"><label>浏览器原生打开（工作台不拦截）</label><select id="mNativeMod"><option value="ctrl">Ctrl / Cmd + 点击</option><option value="shift">Shift + 点击</option><option value="alt">Alt + 点击（Chrome 会吞掉）</option><option value="none">不设置</option></select></div>
           <div class="field"><label>在工作台新开虚拟标签（不切过去）</label><select id="mNewMod"><option value="shift">Shift + 点击</option><option value="ctrl">Ctrl / Cmd + 点击</option><option value="alt">Alt + 点击（Chrome 会吞掉）</option><option value="none">不设置</option></select></div>
           <div class="field"><label>同时收进多个视频时</label><select id="mAbsorb"><option value="last">切换到最后一个打开的视频</option><option value="first">保持第一个打开的视频</option></select></div>
@@ -159,6 +232,22 @@
           <span id="mSaved" style="color:#2e9e44;display:none">已保存</span>
         </div>
       </div>
+    </div>
+    <div class="drawer-back" id="drawerBack">
+      <aside class="drawer" id="drawer">
+        <div class="drawer-head">
+          <span>工作台 · <b id="drawerCount">0</b> 个标签</span>
+          <span class="drawer-close" id="drawerClose" title="关闭（Esc）">×</span>
+        </div>
+        <div class="drawer-search"><input id="drawerSearch" type="text" placeholder="搜索标题 / UP 主 / BV 号" autocomplete="off"></div>
+        <div class="drawer-modes" id="drawerModes">
+          <span class="dmode on" data-mode="time">打开时间</span>
+          <span class="dmode" data-mode="follow">关注分组</span>
+          <span class="dmode" data-mode="up">UP 主</span>
+        </div>
+        <div class="drawer-list" id="drawerList"></div>
+        <div class="drawer-resize" id="drawerResize" title="拖动调整宽度"></div>
+      </aside>
     </div>`;
   const tabsEl = shadow.getElementById('tabs');
   const brandEl = shadow.getElementById('brand');
@@ -513,6 +602,7 @@
     applyBarTheme();
     if (settings.hideInWebFullscreen && isWebFullscreen()) {
       hostEl.style.display = 'none';
+      closeDrawer();
       resetShift();
       return;
     }
@@ -520,6 +610,7 @@
       // 只收起标签栏、保留页面下移：查看器是固定定位的全屏浮层，
       // 这样关闭图片时页面不会先跳 30px 再回来。
       hostEl.style.display = 'none';
+      closeDrawer();
       return;
     }
     hostEl.style.display = '';
@@ -554,23 +645,32 @@
     }
   }
 
+  // 标签显示名：有 UP 主时接在标题后面（“标题 - UP主”），没有就退回 BV 号
+  function tabLabel(t) {
+    const title = t.title || t.bvid;
+    return t.up ? `${title} - ${t.up}` : title;
+  }
+
   function render() {
     const brand = String(settings.brandText || '').trim();
     brandEl.textContent = brand;
     brandEl.style.display = brand ? '' : 'none';
     shadow.getElementById('logs').style.display = settings.debug ? '' : 'none';
+    shadow.getElementById('drawerBtn').textContent = state.tabs.length ? `≡ ${state.tabs.length}` : '≡';
     tabsEl.textContent = '';
     if (!state.tabs.length) {
       const e = document.createElement('span');
       e.className = 'empty';
       e.textContent = '新开 B站 视频标签页会自动收进这里';
       tabsEl.appendChild(e);
+      updateOverflowHints();
+      if (drawerOpen) renderDrawer();
       return;
     }
     for (const t of state.tabs) {
       const el = document.createElement('span');
       el.className = 'tab' + (t.bvid === state.active ? ' active' : '');
-      el.title = t.title || t.bvid;
+      el.title = tabLabel(t);
       const name = document.createElement('span');
       name.className = 'title';
       name.textContent = t.title || t.bvid;
@@ -591,6 +691,328 @@
       tabsEl.appendChild(el);
     }
     applyTabWidthStyle();
+    ensureActiveVisible();
+    updateOverflowHints();
+    if (drawerOpen) renderDrawer();
+  }
+
+  // ---------- 标签栏横向滚动 ----------
+  // 标签挤到窄于 62px 后不再压缩，改为横向滚动（Shift+滚轮是 Chromium 原生行为，
+  // 这里只负责：把当前标签滚进视野、两端渐隐、提示两端各藏了几个）。
+  function updateOverflowHints() {
+    const sl = tabsEl.scrollLeft;
+    const max = Math.max(0, tabsEl.scrollWidth - tabsEl.clientWidth);
+    let left = 0;
+    let right = 0;
+    const kids = [...tabsEl.children];
+    if (!(kids.length === 1 && kids[0].classList.contains('empty'))) {
+      for (const el of kids) {
+        const l = el.offsetLeft - tabsEl.offsetLeft;
+        const r = l + el.offsetWidth;
+        if (r <= sl + 1) left++;
+        else if (l >= sl + tabsEl.clientWidth - 1) right++;
+      }
+    }
+    shadow.getElementById('gradL').classList.toggle('on', sl > 1);
+    shadow.getElementById('gradR').classList.toggle('on', max - sl > 1);
+    const cL = shadow.getElementById('cntL');
+    const cR = shadow.getElementById('cntR');
+    cL.classList.toggle('on', left > 0);
+    cR.classList.toggle('on', right > 0);
+    cL.textContent = `« ${left}`;
+    cR.textContent = `${right} »`;
+    cL.title = `左边还有 ${left} 个标签（Shift+滚轮）`;
+    cR.title = `右边还有 ${right} 个标签（Shift+滚轮）`;
+  }
+
+  function ensureActiveVisible() {
+    const el = tabsEl.querySelector('.tab.active');
+    if (!el) return;
+    const l = el.offsetLeft - tabsEl.offsetLeft;
+    const r = l + el.offsetWidth;
+    const sl = tabsEl.scrollLeft;
+    const w = tabsEl.clientWidth;
+    if (l < sl) tabsEl.scrollLeft = Math.max(0, l - 8);
+    else if (r > sl + w) tabsEl.scrollLeft = r - w + 8;
+  }
+
+  // ---------- 垂直标签页（覆盖式抽屉） ----------
+  let drawerOpen = false;
+  let drawerCursor = -1;
+  let drawerDownOnBack = false; // 按下时指针是否在抽屉外：只有按下和抬起都在外面才关闭
+  // 排序方式只存在这个页面会话里、不写进设置：刷新或新开页面时回到「打开时间」
+  let drawerSort = 'time'; // 'time' 打开时间 | 'follow' 关注分组 | 'up' UP 主
+  let followData = { state: 'idle', tags: [], map: {}, loggedIn: true, midsKey: '' };
+  const foldedGroups = new Set();
+
+  // B站 封面 CDN 支持 @<宽>w_<高>h_<裁切>c.<格式>，必须缩到 160×96 再用：
+  // 一张 1146×716 的原图解压后约 3 MB，70 个标签能吃掉几百 MB，缩略图只要 0.06 MB。
+  function coverThumb(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    const base = raw.replace(/^http:/, 'https:').replace(/@[^/]*$/, '');
+    return `${base}@160w_96h_1c.webp`;
+  }
+
+  // 抽屉最宽到视口的一半：标题长时可以拉宽，同时保证页面还看得见另一半
+  function drawerMaxWidth() {
+    return Math.max(320, Math.round(innerWidth * 0.5));
+  }
+
+  function clampDrawerWidth(w) {
+    return Math.min(drawerMaxWidth(), Math.max(200, Math.round(Number(w) || 260)));
+  }
+
+  function applyDrawerWidth() {
+    shadow.getElementById('drawer').style.width = `${clampDrawerWidth(settings.drawerWidth)}px`;
+  }
+
+  function saveDrawerWidth(w) {
+    settings = { ...settings, drawerWidth: clampDrawerWidth(w) };
+    chrome.storage.sync.set({ [SETTINGS_KEY]: settings }).catch(() => {});
+    dlog('drawer width', settings.drawerWidth);
+  }
+
+  function scrollRowIntoView(list, row) {
+    const lr = list.getBoundingClientRect();
+    const rr = row.getBoundingClientRect();
+    if (rr.top < lr.top) list.scrollTop -= lr.top - rr.top + 4;
+    else if (rr.bottom > lr.bottom) list.scrollTop += rr.bottom - lr.bottom + 4;
+  }
+
+  function markCursor(list) {
+    [...list.querySelectorAll('.ditem')].forEach((r, i) => {
+      r.classList.toggle('cursor', i === drawerCursor);
+    });
+  }
+
+  function makeDrawerRow(t) {
+    const row = document.createElement('div');
+    row.className = 'ditem' + (t.bvid === state.active ? ' active' : '');
+    row.dataset.bvid = t.bvid;
+    const img = document.createElement('img');
+    img.className = 'dcover';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.alt = '';
+    const src = coverThumb(t.cover);
+    if (src) img.src = src;
+    else img.style.visibility = 'hidden';
+    img.addEventListener('error', () => { img.style.visibility = 'hidden'; });
+    const title = document.createElement('div');
+    title.className = 'dtitle';
+    title.textContent = tabLabel(t);
+    title.title = tabLabel(t);
+    const close = document.createElement('span');
+    close.className = 'dclose';
+    close.textContent = '×';
+    close.title = '从工作台移除';
+    row.appendChild(img);
+    row.appendChild(title);
+    row.appendChild(close);
+    row.addEventListener('click', (ev) => {
+      if (ev.target === close) {
+        ev.stopPropagation();
+        removeTab(t.bvid);
+        return;
+      }
+      switchTo(t.bvid);
+      closeDrawer();
+    });
+    return row;
+  }
+
+  // 关注分组：-10 是 B站 的虚拟「特别关注」，排在所有自定义分组前面
+  function tagIndex() {
+    const idx = new Map([[-10, { name: '特别关注', order: -1 }]]);
+    let i = 0;
+    for (const t of followData.tags || []) {
+      if (t.tagid === -10) continue;
+      idx.set(t.tagid, { name: t.name || `分组 ${t.tagid}`, order: i++ });
+    }
+    return idx;
+  }
+
+  // 一个 UP 可能在多个分组里：只归到排序最靠前的那个，避免同一个标签在列表里出现两次
+  function followGroups(items) {
+    const idx = tagIndex();
+    const groups = new Map();
+    for (const t of items) {
+      const ids = (followData.map && followData.map[t.upMid]) || [];
+      let best = null;
+      for (const id of ids) {
+        const info = idx.get(id);
+        if (info && (!best || info.order < best.order)) best = { id, name: info.name, order: info.order };
+      }
+      const key = best ? `tag:${best.id}` : 'tag:none';
+      if (!groups.has(key)) {
+        groups.set(key, { key, name: best ? best.name : '未分组', order: best ? best.order : 1e9, tabs: [] });
+      }
+      groups.get(key).tabs.push(t);
+    }
+    return [...groups.values()].sort((a, b) => a.order - b.order);
+  }
+
+  function upGroups(items) {
+    const map = new Map();
+    for (const t of items) {
+      const name = t.up || '未知 UP 主';
+      if (!map.has(name)) map.set(name, { key: `up:${name}`, name, order: 0, tabs: [] });
+      map.get(name).tabs.push(t);
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
+  }
+
+  function appendGroup(list, g) {
+    const folded = foldedGroups.has(g.key);
+    const head = document.createElement('div');
+    head.className = 'dgroup' + (folded ? ' folded' : '');
+    const toggle = document.createElement('span');
+    toggle.className = 'dgtoggle';
+    toggle.textContent = folded ? '▸' : '▾';
+    const name = document.createElement('span');
+    name.className = 'dgname';
+    name.textContent = g.name;
+    const count = document.createElement('span');
+    count.className = 'dgcount';
+    count.textContent = String(g.tabs.length);
+    head.appendChild(toggle);
+    head.appendChild(name);
+    head.appendChild(count);
+    head.title = folded ? '展开' : '折叠';
+    head.addEventListener('click', () => {
+      if (folded) foldedGroups.delete(g.key);
+      else foldedGroups.add(g.key);
+      drawerCursor = -1;
+      renderDrawer();
+    });
+    list.appendChild(head);
+    if (folded) return;
+    for (const t of g.tabs) list.appendChild(makeDrawerRow(t));
+  }
+
+  function renderDrawer() {
+    const list = shadow.getElementById('drawerList');
+    const q = String(shadow.getElementById('drawerSearch').value || '').trim().toLowerCase();
+    shadow.getElementById('drawerCount').textContent = state.tabs.length;
+    list.textContent = '';
+    list.classList.toggle('no-cover', settings.drawerCover === false);
+    const items = state.tabs.filter((t) => {
+      if (!q) return true;
+      return [t.title, t.up, t.bvid].join(' ').toLowerCase().includes(q);
+    });
+    if (!items.length) {
+      const tip = document.createElement('div');
+      tip.className = 'dtip';
+      tip.textContent = state.tabs.length ? '没有匹配的标签' : '还没有视频标签';
+      list.appendChild(tip);
+      drawerCursor = -1;
+      return;
+    }
+    if (drawerSort === 'time') {
+      items.forEach((t) => list.appendChild(makeDrawerRow(t)));
+    } else {
+      if (drawerSort === 'follow' && followData.state !== 'ready') {
+        const note = document.createElement('div');
+        note.className = 'dnote';
+        note.textContent = followData.state === 'loading' ? '正在读取关注分组…' : '尚未读取关注分组';
+        list.appendChild(note);
+      } else if (drawerSort === 'follow' && !followData.loggedIn) {
+        const note = document.createElement('div');
+        note.className = 'dnote';
+        note.textContent = '未登录 B站，读不到关注分组，全部归入「未分组」';
+        list.appendChild(note);
+      }
+      const groups = drawerSort === 'follow' ? followGroups(items) : upGroups(items);
+      for (const g of groups) appendGroup(list, g);
+    }
+    markCursor(list);
+    const activeRow = list.querySelector('.ditem.active');
+    if (activeRow) scrollRowIntoView(list, activeRow);
+  }
+
+  async function ensureTabInfo() {
+    // 旧标签可能只存了 BV 号：标题、封面、UP 主（upMid 用于关注分组）都在这里补齐
+    const missing = state.tabs.filter((t) => !t.up || !t.cover || !t.upMid).map((t) => t.bvid);
+    if (!missing.length) return;
+    const resp = await sendBg({ type: 'ENSURE_INFO', bvids: missing });
+    if (resp && resp.state && drawerOpen) {
+      state = { closed: [], ...resp.state };
+      render();
+    }
+  }
+
+  async function loadFollowIndex() {
+    const mids = [...new Set(state.tabs.map((t) => t.upMid).filter((m) => Number.isFinite(m) && m > 0))];
+    const key = mids.slice().sort((a, b) => a - b).join(',');
+    if (followData.state === 'loading') return;
+    if (followData.state === 'ready' && followData.midsKey === key) return;
+    followData = { ...followData, state: 'loading', midsKey: key };
+    renderDrawer();
+    const resp = await sendBg({ type: 'FOLLOW_INDEX', mids });
+    followData = {
+      state: 'ready',
+      tags: resp && Array.isArray(resp.tags) ? resp.tags : [],
+      map: (resp && resp.map) || {},
+      loggedIn: !(resp && resp.loggedIn === false),
+      midsKey: key,
+    };
+    if (drawerOpen) renderDrawer();
+  }
+
+  async function openDrawer() {
+    if (drawerOpen) return;
+    drawerOpen = true;
+    drawerCursor = -1;
+    shadow.getElementById('drawerBack').classList.add('show');
+    applyDrawerWidth();
+    renderDrawer();
+    dlog('drawer open', state.tabs.length, drawerSort);
+    await ensureTabInfo();
+    if (drawerSort === 'follow') await loadFollowIndex();
+    try { shadow.getElementById('drawerSearch').focus(); } catch (e) {}
+  }
+
+  function closeDrawer() {
+    if (!drawerOpen) return;
+    drawerOpen = false;
+    drawerDownOnBack = false;
+    shadow.getElementById('drawerBack').classList.remove('show');
+    try { shadow.getElementById('drawerSearch').blur(); } catch (e) {}
+  }
+
+  function toggleDrawer() {
+    if (drawerOpen) closeDrawer();
+    else openDrawer();
+  }
+
+  // 抽屉内键盘操作：上下选、回车切换、Esc 关闭（搜索框聚焦时也生效）
+  function drawerKeydown(e) {
+    if (!drawerOpen) return false;
+    const list = shadow.getElementById('drawerList');
+    const rows = [...list.querySelectorAll('.ditem')];
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!rows.length) return false;
+      e.preventDefault();
+      e.stopPropagation();
+      drawerCursor = e.key === 'ArrowDown'
+        ? Math.min(rows.length - 1, drawerCursor + 1)
+        : Math.max(0, drawerCursor - 1);
+      markCursor(list);
+      scrollRowIntoView(list, rows[drawerCursor]);
+      return true;
+    }
+    if (e.key === 'Enter' && drawerCursor >= 0) {
+      const row = rows[drawerCursor];
+      if (row) {
+        e.preventDefault();
+        e.stopPropagation();
+        switchTo(row.dataset.bvid);
+        closeDrawer();
+        return true;
+      }
+    }
+    return false;
   }
 
   // ---------- 状态 ----------
@@ -604,6 +1026,7 @@
     const got = await chrome.storage.sync.get(SETTINGS_KEY);
     settings = { ...DEFAULT_SETTINGS, ...(got[SETTINGS_KEY] || {}) };
     applyBarHeight();
+    applyDrawerWidth();
     render();
     applyLayout();
   }
@@ -672,6 +1095,13 @@
     if (e.key === 'Escape') {
       const back = shadow.getElementById('modalBack');
       if (back && back.classList.contains('show')) { e.preventDefault(); e.stopPropagation(); closeSettings(); return; }
+      if (drawerOpen) { e.preventDefault(); e.stopPropagation(); closeDrawer(); return; }
+    }
+    if (drawerOpen && drawerKeydown(e)) return;
+    if (matchCombo(settings.drawerShortcut, e)) {
+      e.preventDefault(); e.stopPropagation();
+      toggleDrawer();
+      return;
     }
     if (isTypingTarget(e.target)) return;
     if (matchCombo(settings.closeShortcut, e)) {
@@ -807,6 +1237,7 @@
     if (area === 'sync' && changes[SETTINGS_KEY]) {
       settings = { ...DEFAULT_SETTINGS, ...(changes[SETTINGS_KEY].newValue || {}) };
       applyBarHeight();
+      applyDrawerWidth();
       render();
       applyLayout();
     }
@@ -916,6 +1347,8 @@
     shadow.getElementById('mBarColor').disabled = (settings.barTheme || 'page') !== 'fixed';
     shadow.getElementById('mCloseShortcut').value = settings.closeShortcut;
     shadow.getElementById('mRestoreShortcut').value = settings.restoreShortcut;
+    shadow.getElementById('mDrawerShortcut').value = settings.drawerShortcut;
+    shadow.getElementById('mDrawerCover').checked = settings.drawerCover !== false;
     shadow.getElementById('mNativeMod').value = settings.nativeTabModifier;
     shadow.getElementById('mNewMod').value = settings.newTabModifier;
     shadow.getElementById('mAbsorb').value = settings.absorbSwitch;
@@ -939,6 +1372,9 @@
       barColor: /^#[0-9a-f]{6}$/i.test(shadow.getElementById('mBarColor').value) ? shadow.getElementById('mBarColor').value : '#18191c',
       closeShortcut: String(shadow.getElementById('mCloseShortcut').value || '').trim() || 'Alt+W',
       restoreShortcut: String(shadow.getElementById('mRestoreShortcut').value || '').trim() || 'Alt+T',
+      drawerShortcut: String(shadow.getElementById('mDrawerShortcut').value || '').trim() || 'Alt+Q',
+      drawerWidth: Math.round(Number(settings.drawerWidth) || 260),
+      drawerCover: shadow.getElementById('mDrawerCover').checked,
       nativeTabModifier: shadow.getElementById('mNativeMod').value,
       newTabModifier: shadow.getElementById('mNewMod').value,
       hideInWebFullscreen: shadow.getElementById('mHideFs').checked,
@@ -977,6 +1413,76 @@
     chrome.runtime.sendMessage({ type: 'SET_DIAG', info }).catch(() => {});
     chrome.runtime.sendMessage({ type: 'OPEN_DEBUG' }).catch(() => {});
   });
+
+  // ---------- 垂直标签页：事件 ----------
+  shadow.getElementById('drawerBtn').addEventListener('click', () => toggleDrawer());
+  shadow.getElementById('drawerClose').addEventListener('click', () => closeDrawer());
+  // 只有按下和抬起都发生在抽屉外才关闭：拖右边缘调宽、在抽屉外松手时不该关掉抽屉
+  shadow.getElementById('drawerBack').addEventListener('mousedown', (e) => {
+    drawerDownOnBack = e.target === shadow.getElementById('drawerBack');
+  });
+  shadow.getElementById('drawerBack').addEventListener('mouseup', (e) => {
+    const hitOutside = drawerDownOnBack && e.target === shadow.getElementById('drawerBack');
+    drawerDownOnBack = false;
+    if (hitOutside) closeDrawer();
+  });
+  shadow.getElementById('drawerSearch').addEventListener('input', () => {
+    drawerCursor = -1;
+    renderDrawer();
+  });
+  shadow.querySelectorAll('.dmode').forEach((el) => {
+    el.addEventListener('click', () => {
+      const mode = el.dataset.mode;
+      if (mode === drawerSort) return;
+      drawerSort = mode;
+      drawerCursor = -1;
+      shadow.querySelectorAll('.dmode').forEach((x) => x.classList.toggle('on', x.dataset.mode === mode));
+      if (mode === 'follow') loadFollowIndex();
+      renderDrawer();
+    });
+  });
+  shadow.getElementById('cntL').addEventListener('click', () => openDrawer());
+  shadow.getElementById('cntR').addEventListener('click', () => openDrawer());
+  tabsEl.addEventListener('scroll', () => updateOverflowHints(), { passive: true });
+  // Shift+滚轮：Chromium 一般会在浏览器进程里把纵向滚轮转成横向 deltaX（那时 deltaX 非 0，
+  // 交给原生滚动）；少数环境转不过来，这里补一条兜底，两条路径不会重复滚动。
+  tabsEl.addEventListener('wheel', (e) => {
+    if (!e.shiftKey || e.deltaX || !e.deltaY) return;
+    const max = tabsEl.scrollWidth - tabsEl.clientWidth;
+    if (max <= 0) return;
+    e.preventDefault();
+    tabsEl.scrollLeft = Math.max(0, Math.min(max, tabsEl.scrollLeft + e.deltaY));
+    updateOverflowHints();
+  }, { passive: false });
+  window.addEventListener('resize', () => {
+    applyDrawerWidth(); // 窗口变窄时，过宽的抽屉要收回到「一半视口」的上限之内
+    updateOverflowHints();
+  });
+
+  // 拖拽右边缘调宽；松手才写回设置，避免拖动过程里频繁写 storage
+  (() => {
+    const handle = shadow.getElementById('drawerResize');
+    let dragging = false;
+    let startX = 0;
+    let startW = 0;
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragging = true;
+      startX = e.clientX;
+      startW = shadow.getElementById('drawer').getBoundingClientRect().width;
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const w = clampDrawerWidth(startW + e.clientX - startX);
+      shadow.getElementById('drawer').style.width = `${w}px`;
+    });
+    window.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      saveDrawerWidth(Math.round(shadow.getElementById('drawer').getBoundingClientRect().width));
+    });
+  })();
 
   // ---------- 布局监听 ----------
   let mo = null;

@@ -30,16 +30,26 @@ async function writeState(s) {
 }
 
 const infoCache = new Map();
+const infoFailUntil = new Map(); // bvid -> 允许重试的时间戳：失败的视频（已删除/风控）短时间内不再重复请求
 async function fetchVideoInfo(bvid) {
   if (infoCache.has(bvid)) return infoCache.get(bvid);
+  const retryAt = infoFailUntil.get(bvid);
+  if (retryAt && Date.now() < retryAt) return null;
   try {
     const r = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${encodeURIComponent(bvid)}`, { credentials: 'include' });
     const j = await r.json();
     if (j && j.code === 0 && j.data) {
-      const info = { title: j.data.title, cover: j.data.pic };
+      const info = {
+        title: j.data.title,
+        cover: j.data.pic,
+        up: (j.data.owner && j.data.owner.name) || '',
+        upMid: (j.data.owner && j.data.owner.mid) || 0,
+      };
       infoCache.set(bvid, info);
+      infoFailUntil.delete(bvid);
       return info;
     }
+    infoFailUntil.set(bvid, Date.now() + 5 * 60 * 1000);
   } catch (e) { /* 忽略：标题可以稍后再补 */ }
   return null;
 }
@@ -47,13 +57,80 @@ async function fetchVideoInfo(bvid) {
 function upsertTab(state, bvid, info) {
   let t = state.tabs.find((x) => x.bvid === bvid);
   if (!t) {
-    t = { bvid, title: (info && info.title) || bvid, cover: (info && info.cover) || '' };
+    t = { bvid, title: (info && info.title) || bvid, cover: (info && info.cover) || '', up: (info && info.up) || '', upMid: (info && info.upMid) || 0 };
     state.tabs.push(t);
   } else if (info) {
     t.title = info.title || t.title;
     t.cover = info.cover || t.cover;
+    t.up = info.up || t.up || '';
+    t.upMid = info.upMid || t.upMid || 0;
   }
   return t;
+}
+
+// ---------- 关注分组（抽屉里的「关注分组」排序） ----------
+// /x/relation/tags 拿分组列表；/x/relation?fid= 查单个 UP 在哪些分组里。
+// 特别关注不在 tag 数组里，而是 data.special === 1，对应 B站 的虚拟分组 -10。
+const FOLLOW_TAGS_KEY = 'biliWsFollowTags';
+const FOLLOW_MEMBERS_KEY = 'biliWsFollowMembers';
+const FOLLOW_TTL = 6 * 60 * 60 * 1000;      // 分组关系 6 小时内视为有效
+const FOLLOW_KEEP = 7 * 24 * 60 * 60 * 1000; // 超过 7 天的记录清掉，避免缓存无限增长
+
+async function fetchJson(url) {
+  const r = await fetch(url, { credentials: 'include' });
+  return r.json();
+}
+
+async function getFollowTags() {
+  const got = await chrome.storage.local.get(FOLLOW_TAGS_KEY);
+  const cached = got[FOLLOW_TAGS_KEY];
+  if (cached && Array.isArray(cached.tags) && Date.now() - cached.at < FOLLOW_TTL) return cached.tags;
+  try {
+    const j = await fetchJson('https://api.bilibili.com/x/relation/tags');
+    if (j && j.code === 0 && Array.isArray(j.data)) {
+      const tags = j.data.map((t) => ({ tagid: t.tagid, name: t.name }));
+      await chrome.storage.local.set({ [FOLLOW_TAGS_KEY]: { at: Date.now(), tags } });
+      return tags;
+    }
+  } catch (e) { /* 离线/未登录：退回旧缓存 */ }
+  return cached && Array.isArray(cached.tags) ? cached.tags : null;
+}
+
+async function getFollowMembers(mids) {
+  const got = await chrome.storage.local.get(FOLLOW_MEMBERS_KEY);
+  const cache = got[FOLLOW_MEMBERS_KEY] && typeof got[FOLLOW_MEMBERS_KEY] === 'object' ? got[FOLLOW_MEMBERS_KEY] : {};
+  const now = Date.now();
+  let loggedIn = true;
+  const queue = mids.filter((m) => !cache[m] || now - cache[m].at > FOLLOW_TTL);
+  const workers = [];
+  // 并发 3 + 每次间隔 120ms：一次性打几十个请求容易触发 B站 的 412/风控
+  for (let i = 0; i < Math.min(3, queue.length); i++) {
+    workers.push((async () => {
+      while (queue.length) {
+        const mid = queue.shift();
+        try {
+          const j = await fetchJson(`https://api.bilibili.com/x/relation?fid=${encodeURIComponent(mid)}`);
+          if (j && j.code === 0 && j.data) {
+            const tags = Array.isArray(j.data.tag) ? j.data.tag.slice() : [];
+            if (Number(j.data.special) === 1 && !tags.includes(-10)) tags.push(-10);
+            cache[mid] = { tags, at: now };
+          } else {
+            if (j && j.code === -101) loggedIn = false; // 未登录
+            cache[mid] = { tags: [], at: now };
+          }
+        } catch (e) {
+          cache[mid] = { tags: [], at: now };
+        }
+        await new Promise((r) => setTimeout(r, 120));
+      }
+    })());
+  }
+  await Promise.all(workers);
+  for (const k of Object.keys(cache)) {
+    if (!cache[k] || !cache[k].at || now - cache[k].at > FOLLOW_KEEP) delete cache[k];
+  }
+  await chrome.storage.local.set({ [FOLLOW_MEMBERS_KEY]: cache });
+  return { cache, loggedIn };
 }
 
 let queue = Promise.resolve();
@@ -82,7 +159,7 @@ function settingsOrDefault(s) {
 // 把虚拟标签移入“最近关闭”，之后仍可用 Alt+T 唤回。
 function discardWorkspaceTabs(state) {
   state.closed = Array.isArray(state.closed) ? state.closed.slice(-30) : [];
-  for (const t of state.tabs) state.closed.push({ bvid: t.bvid, title: t.title, cover: t.cover, index: 0 });
+  for (const t of state.tabs) state.closed.push({ bvid: t.bvid, title: t.title, cover: t.cover, up: t.up, upMid: t.upMid, index: 0 });
   state.tabs = [];
   state.active = null;
 }
@@ -479,7 +556,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (!state.tabs.length) {
         // 空工作台：把“最近关闭”的全部恢复
         for (const item of closed.splice(0)) {
-          if (!state.tabs.some((t) => t.bvid === item.bvid)) state.tabs.push({ bvid: item.bvid, title: item.title || item.bvid, cover: item.cover || '' });
+          if (!state.tabs.some((t) => t.bvid === item.bvid)) state.tabs.push({ bvid: item.bvid, title: item.title || item.bvid, cover: item.cover || '', up: item.up || '', upMid: item.upMid || 0 });
         }
         const last = state.tabs[state.tabs.length - 1];
         state.active = last ? last.bvid : null;
@@ -487,7 +564,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return sendResponse({ ok: true, state, bvid: state.active });
       }
       const item = closed.pop();
-      const tab = { bvid: item.bvid, title: item.title || item.bvid, cover: item.cover || '' };
+      const tab = { bvid: item.bvid, title: item.title || item.bvid, cover: item.cover || '', up: item.up || '', upMid: item.upMid || 0 };
       if (!state.tabs.some((t) => t.bvid === tab.bvid)) {
         const at = Math.min(Number.isFinite(item.index) ? item.index : state.tabs.length, state.tabs.length);
         state.tabs.splice(at, 0, tab);
@@ -516,6 +593,43 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       await writeState(state);
       sendResponse({ ok: true, state });
     });
+    return true;
+  }
+  // 抽屉里要显示“标题 - UP主”和封面：旧标签可能只存了 BV 号，打开抽屉时补一次
+  if (msg.type === 'ENSURE_INFO' && Array.isArray(msg.bvids)) {
+    serial(async () => {
+      const state = await readState();
+      const queue = msg.bvids
+        .filter((b) => typeof b === 'string' && state.tabs.some((t) => t.bvid === b))
+        .slice(0, 200);
+      // 并发 4：一次几十个请求，串行太慢，全并发又容易触发 B站 风控
+      const workers = [];
+      for (let i = 0; i < Math.min(4, queue.length); i++) {
+        workers.push((async () => {
+          while (queue.length) {
+            const bvid = queue.shift();
+            const info = await fetchVideoInfo(bvid);
+            if (info) upsertTab(state, bvid, info);
+          }
+        })());
+      }
+      await Promise.all(workers);
+      await writeState(state);
+      sendResponse({ ok: true, state });
+    });
+    return true;
+  }
+  // 抽屉「关注分组」排序：返回分组列表 + 每个 UP 所在分组
+  if (msg.type === 'FOLLOW_INDEX' && Array.isArray(msg.mids)) {
+    // 不放进 serial：这里可能连发几十个请求，不能挡住切标签等状态操作
+    (async () => {
+      const mids = [...new Set(msg.mids.filter((m) => Number.isFinite(m) && m > 0))].slice(0, 300);
+      const tags = await getFollowTags();
+      const { cache, loggedIn } = await getFollowMembers(mids);
+      const map = {};
+      for (const m of mids) map[m] = (cache[m] && Array.isArray(cache[m].tags)) ? cache[m].tags : [];
+      sendResponse({ ok: true, tags: tags || [], map, loggedIn });
+    })().catch(() => sendResponse({ ok: false, tags: [], map: {}, loggedIn: true }));
     return true;
   }
   if (msg.type === 'REGISTER_VIDEO' && sender.tab && sender.tab.id) {
