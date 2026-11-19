@@ -75,7 +75,16 @@ let suppressHostRecreate = false; // CLOSE_WORKSPACE 时不要后台重建
 let backgroundHostCreating = false; // 正在后台创建宿主
 
 function settingsOrDefault(s) {
-  return Object.assign({ absorbSwitch: 'last', afterCloseAll: 'empty', autoRestoreTabs: true }, s || {});
+  return Object.assign({ absorbSwitch: 'last', afterCloseAll: 'empty', autoRestoreTabs: false }, s || {});
+}
+
+// “下次启动工作台时自动恢复上次未关闭的虚拟标签页”关闭时，工作台一旦关闭就应清空标签页。
+// 把虚拟标签移入“最近关闭”，之后仍可用 Alt+T 唤回。
+function discardWorkspaceTabs(state) {
+  state.closed = Array.isArray(state.closed) ? state.closed.slice(-30) : [];
+  for (const t of state.tabs) state.closed.push({ bvid: t.bvid, title: t.title, cover: t.cover, index: 0 });
+  state.tabs = [];
+  state.active = null;
 }
 
 async function getHostTab(state) {
@@ -189,7 +198,7 @@ chrome.tabs.onCreated.addListener((tab) => serial(async () => {
   if (shouldSwitch) await switchHostTo(bvid, tab.active === true);
 }));
 
-// 宿主标签页关闭：清空宿主标记（虚拟标签列表保留）
+// 宿主标签页关闭：清空宿主标记（虚拟标签列表是否清空取决于“自动恢复”设置）
 chrome.tabs.onRemoved.addListener((tabId) => serial(async () => {
   nativeTabIds.delete(tabId);
   if (backgroundHostCreating) return; // 我们自己创建后台宿主的回调
@@ -198,13 +207,26 @@ chrome.tabs.onRemoved.addListener((tabId) => serial(async () => {
   state.hostTabId = null;
   const st = settingsOrDefault(await readSettings());
   if (st.autoRestoreTabs === false) {
-    // 不自动恢复：把标签页全部移入“最近关闭”，下次启动是空工作台，Alt+T 可批量唤回
-    state.closed = Array.isArray(state.closed) ? state.closed.slice(-30) : [];
-    for (const t of state.tabs) state.closed.push({ bvid: t.bvid, title: t.title, cover: t.cover, index: 0 });
-    state.tabs = [];
-    state.active = null;
+    // 不自动恢复：把标签页全部移入“最近关闭”，下次启动是空工作台，Alt+T 可批量唤回。
+    // 点窗口 × 导致的整窗关闭也走这里（宿主随之被移除）。
+    discardWorkspaceTabs(state);
   }
   await writeState(state);
+}));
+
+// 整窗关闭（点窗口右上角 ×）可能在浏览器退出过程中发生：service worker 要么没被唤醒，
+// 要么写了状态但进程先退出、storage 没落盘。这里在下次浏览器启动时按设置补做一次清理。
+chrome.runtime.onStartup.addListener(() => serial(async () => {
+  const state = await readState();
+  let changed = false;
+  // 上一个浏览器会话的标签页 id 在新会话里没有意义（还可能被别的标签复用）
+  if (state.hostTabId) { state.hostTabId = null; changed = true; }
+  const st = settingsOrDefault(await readSettings());
+  if (st.autoRestoreTabs === false && state.tabs.length) {
+    discardWorkspaceTabs(state);
+    changed = true;
+  }
+  if (changed) await writeState(state);
 }));
 
 async function openPopup(url, width, height) {
@@ -368,6 +390,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       await writeState(state);
       sendResponse({ isHost: false, state });
       try { await chrome.tabs.remove(tabId); } catch (e) {}
+    });
+    return true;
+  }
+  if (msg.type === 'CLAIM_BLANK_HOST' && sender.tab && sender.tab.id) {
+    serial(async () => {
+      const tabId = sender.tab.id;
+      const state = await readState();
+      const host = await getHostTab(state);
+      // 只认真正的工作台标签页（B站视频页或空白工作台），避免被复用的旧 tabId 挡住登记
+      const hostAlive = host && (bvidFromUrl(host.url) || String(host.url || '').startsWith(chrome.runtime.getURL('blank.html')));
+      if (hostAlive && host.id !== tabId) {
+        sendResponse({ isHost: false });
+        return;
+      }
+      if (state.hostTabId !== tabId) {
+        state.hostTabId = tabId;
+        await writeState(state);
+      }
+      sendResponse({ isHost: true, state });
     });
     return true;
   }

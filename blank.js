@@ -144,6 +144,10 @@ document.addEventListener('keydown', (e) => {
   await loadSettings();
   await render();
 })();
+
+// 浏览器重启后空白工作台标签页可能被会话恢复出来：重新登记成宿主，
+// 否则之后打开的视频会另开一个工作台标签，旧空白页变成没人管的游离标签。
+chrome.runtime.sendMessage({ type: 'CLAIM_BLANK_HOST' }).catch(() => {});
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'sync' && changes[SETTINGS_KEY]) {
     settings = { ...DEFAULTS, ...(changes[SETTINGS_KEY].newValue || {}) };
