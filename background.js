@@ -87,6 +87,23 @@ function discardWorkspaceTabs(state) {
   state.active = null;
 }
 
+// 宿主是否已经在显示一个 Bilibili 视频页（而不是空白工作台 blank.html）。
+// 空白工作台没有“当前视频”可言，收进新视频时必须让宿主切过去，否则视频只会写进状态、界面上看不到。
+function hostIsVideoPage(host) {
+  return !!bvidFromUrl(host && (host.pendingUrl || host.url));
+}
+
+// 空白工作台上的“最近关闭”列表只记录状态；空白页本身不显示虚拟标签，
+// 所以收进视频后必须把宿主导航到该视频，用户才能看见。
+async function showFirstTabOnBlankHost() {
+  const state = await readState();
+  const host = await getHostTab(state);
+  if (!host || hostIsVideoPage(host)) return;
+  const bvid = state.active || (state.tabs[0] && state.tabs[0].bvid);
+  if (!bvid) return;
+  try { await chrome.tabs.update(host.id, { url: `https://www.bilibili.com/video/${bvid}/` }); } catch (e) {}
+}
+
 async function getHostTab(state) {
   if (!state.hostTabId) return null;
   try {
@@ -146,6 +163,7 @@ async function absorbExistingTabs() {
     try { await chrome.tabs.remove(t.id); } catch (e) {}
   }
   if (changed) await writeState(state);
+  if (changed) await showFirstTabOnBlankHost();
 }
 
 // 新标签页出现：如果是 Bilibili 视频页就归并
@@ -191,7 +209,8 @@ chrome.tabs.onCreated.addListener((tab) => serial(async () => {
   const now = Date.now();
   const burst = now - lastAbsorbAt < 4000;
   lastAbsorbAt = now;
-  const shouldSwitch = st.absorbSwitch !== 'first';
+  // 宿主还停在空白工作台时没有“当前视频”可保持：无论 absorbSwitch 选什么，都必须让它切到这个视频。
+  const shouldSwitch = !hostIsVideoPage(host) || st.absorbSwitch !== 'first';
   if (shouldSwitch) state.active = bvid;
   await writeState(state);
   try { await chrome.tabs.remove(tab.id); } catch (e) {}
