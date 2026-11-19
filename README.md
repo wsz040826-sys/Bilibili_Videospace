@@ -4,7 +4,7 @@
 > 除了页面顶部多一条标签栏，其余界面和功能完全还是 B站 自己的。
 > 同时开启大量视频页时大幅度节省内存。
 
-[![Version](https://img.shields.io/badge/version-1.0.0-fb7299)](https://github.com/wsz040826-sys/Bilibili_Videospace)
+[![Version](https://img.shields.io/badge/version-1.1.0-fb7299)](https://github.com/wsz040826-sys/Bilibili_Videospace)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Manifest](https://img.shields.io/badge/Manifest-V3-brightgreen)](https://developer.chrome.com/docs/extensions/develop/migrate)
 [![Platform](https://img.shields.io/badge/Edge%20%7C%20Chromium-Windows%20%7C%20macOS%20%7C%20Linux-00aeec)](https://github.com/wsz040826-sys/Bilibili_Videospace#安装)
@@ -31,7 +31,7 @@
   - `Ctrl/Cmd + 点击` 视频链接 = 浏览器原生新标签页，工作台不拦截；
   - `Shift + 点击` 视频链接 = 在工作台新开一个虚拟标签（不切过去）。
 - 📄 **空白工作台**：关掉所有虚拟标签后，宿主导航到一个不加载 B站 的空白页；可输入 BV 号/链接，或从"最近关闭"恢复。
-- 🎨 **可配置**：标签栏文字、标签宽度模式、点击修饰键、快捷键、网页全屏时隐藏标签栏、debug 日志等。
+- 🎨 **可配置**：标签栏文字/配色、标签宽度模式、点击修饰键、快捷键、网页全屏时隐藏标签栏、debug 日志等。
 - 🧩 **兼容 B站 生态**：页面是真的 B站 页面，所以 B站 自身的所有界面/交互，以及各种 B站 相关扩展（如 BewlyBewly）都不受影响。
 
 ![空白工作台](assets/screenshot-blank.png)
@@ -102,6 +102,7 @@
 |---|---|
 | 左侧文字 | 标签栏最左侧的文字，可留空隐藏 |
 | 标签宽度模式 | 按标题自适应（含最大宽度）/ 固定宽度 |
+| 标签栏颜色 | 跟随当前页面设置（默认，随 B站 / BewlyBewly 等深浅色切换）/ 跟随浏览器深浅色 / 固定颜色（可自选颜色；浏览器“外观颜色”没有 API，想跟主题色一致就选同色） |
 | 关闭 / 恢复快捷键 | 默认 `Alt+W` / `Alt+T`，可自定义 |
 | 浏览器原生打开 | 默认 `Ctrl/Cmd + 点击` |
 | 工作台新开虚拟标签 | 默认 `Shift + 点击` |
@@ -150,6 +151,7 @@ assets/                icon 和 README 截图
 
 ## 更新记录
 
+- **1.1.0**：标签栏新增配色设置（跟随当前页面 / 跟随浏览器深浅色 / 固定颜色可自选）；关闭浏览器窗口（×）时也会按"自动恢复"设置清空虚拟标签；空白工作台收进视频时宿主自动切过去，不再出现"视频打开后消失"；打开评论区大图时自动收起标签栏。
 - **1.0.0**：首个正式版本。固定 30px 标签栏、标签栏文字可为空、debug 关闭时隐藏日志按钮、默认设置对齐日常使用。
 - **0.4.x**：标签栏高度统一、空白工作台页、设置弹窗统一、诊断并入日志、修复黑边/标题错位/焦点抢夺等。
 - **0.3.x**：改用真实 B站 页面 + 顶部标签栏，复用站内 SPA 切换。
