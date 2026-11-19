@@ -398,12 +398,128 @@
     hostEl.dataset.palette = (settings.barTheme === 'fixed') ? 'custom' : (dark ? 'dark' : 'light');
   }
 
+  // ---------- 图片查看器 / 全屏浮层 ----------
+  // B站（评论区、动态等）打开大图时是一个铺满视口的 fixed 浮层，标签栏会压住图片顶部。
+  // 浮层的实现随 B站 改版会变（PhotoSwipe 的 .pswp、bili-photoswipe 组件、或其它带 shadow DOM 的组件），
+  // 所以既认已知实现，也做通用判断：视口中央命中一个铺满视口的 fixed 浮层，且浮层里有一张够大的图。
+  // 视口尺寸用文档客户区的宽高：Windows 上经典滚动条会让 innerWidth 比 100% 宽 15px 左右，
+  // 用 innerWidth 比较会把“宽度 100% 的全屏浮层”判成没铺满。
+  function viewportSize() {
+    const de = document.documentElement;
+    return { w: (de && de.clientWidth) || innerWidth, h: (de && de.clientHeight) || innerHeight };
+  }
+
+  function fillsViewport(el) {
+    if (!el || !el.isConnected) return false;
+    let r;
+    try { r = el.getBoundingClientRect(); } catch (e) { return false; }
+    const v = viewportSize();
+    return r.width >= v.w - 4 && r.height >= v.h - 4 && r.top <= 1 && r.left <= 1;
+  }
+
+  // 自定义元素自身可能没有布局盒（fixed 浮层在 shadow 里），所以要连它 shadow DOM 里的元素一起看；
+  // 查看器组件自己的 DOM 很小，这里遍历它的 shadow 树不会带来性能问题。
+  function elementFillsViewportDeep(el) {
+    if (fillsViewport(el)) return true;
+    const sr = el && el.shadowRoot;
+    if (!sr) return false;
+    for (const child of sr.querySelectorAll('*')) if (fillsViewport(child)) return true;
+    return false;
+  }
+
+  function viewerCandidates() {
+    const cands = [...document.querySelectorAll('.pswp, bili-photoswipe')];
+    // 评论区的查看器也可能建在评论组件的 shadow DOM 里
+    const comments = document.querySelector('bili-comments');
+    if (comments && comments.shadowRoot) cands.push(...comments.shadowRoot.querySelectorAll('.pswp, bili-photoswipe'));
+    return cands;
+  }
+
+  // 跨 shadow DOM（open）向上遍历祖先
+  function someAncestor(el, fn) {
+    let n = el;
+    for (let i = 0; n && i < 60; i++) {
+      if (fn(n) === true) return true;
+      if (n.parentElement) { n = n.parentElement; continue; }
+      let root = null;
+      try { root = n.getRootNode ? n.getRootNode() : null; } catch (e) {}
+      n = root && root.host ? root.host : null;
+    }
+    return false;
+  }
+
+  // 逐层（含 open shadow DOM）做命中测试，返回该点命中的所有元素
+  function hitStackAt(x, y) {
+    const stack = [];
+    let root = document;
+    for (let depth = 0; depth < 8 && root; depth++) {
+      let els = [];
+      try { els = root.elementsFromPoint ? root.elementsFromPoint(x, y) : []; } catch (e) { break; }
+      if (!els.length) break;
+      stack.push(...els);
+      const top = els[0];
+      root = top && top.shadowRoot ? top.shadowRoot : null;
+    }
+    return stack;
+  }
+
+  // 浮层里有没有一张“够大”的图（查看器会把图片缩放到接近视口）
+  function containsBigPicture(el, depth = 0) {
+    if (!el) return false;
+    const v = viewportSize();
+    const min = Math.min(v.w, v.h) * 0.18;
+    let imgs = [];
+    try { imgs = el.querySelectorAll('img'); } catch (e) {}
+    for (const img of imgs) {
+      const r = img.getBoundingClientRect();
+      if (r.width >= min && r.height >= min) return true;
+    }
+    if (depth < 2 && el.shadowRoot) {
+      for (const child of el.shadowRoot.children) if (containsBigPicture(child, depth + 1)) return true;
+    }
+    return false;
+  }
+
+  function isPhotoViewerOpen() {
+    // 1) 已知实现：查看器首次打开时才挂到 body 上，关闭后 display 回到 none（宽高归零）
+    for (const el of viewerCandidates()) if (elementFillsViewportDeep(el)) return true;
+    // 2) 通用兜底：从视口中央往上找铺满视口的 fixed 浮层，且浮层里有一张大图
+    const v = viewportSize();
+    const pts = [
+      [Math.round(v.w / 2), Math.round(v.h / 2)],
+      [Math.round(v.w / 2), Math.round(v.h * 0.35)],
+    ];
+    for (const [x, y] of pts) {
+      for (const hit of hitStackAt(x, y)) {
+        if (hit === hostEl) continue;
+        let overlay = null;
+        someAncestor(hit, (a) => {
+          if (a === hostEl || !fillsViewport(a)) return false;
+          let cs;
+          try { cs = getComputedStyle(a); } catch (e) { return false; }
+          if (cs.position !== 'fixed') return false;
+          overlay = a;
+          return true;
+        });
+        if (overlay && containsBigPicture(overlay)) return true;
+      }
+    }
+    return false;
+  }
+
+  // 标签栏要让位的情况：B站“网页全屏”（播放器铺满）时整体收起；图片查看器打开时只收起标签栏。
   function applyLayout() {
     if (disabled) return;
     applyBarTheme();
     if (settings.hideInWebFullscreen && isWebFullscreen()) {
       hostEl.style.display = 'none';
       resetShift();
+      return;
+    }
+    if (isPhotoViewerOpen()) {
+      // 只收起标签栏、保留页面下移：查看器是固定定位的全屏浮层，
+      // 这样关闭图片时页面不会先跳 30px 再回来。
+      hostEl.style.display = 'none';
       return;
     }
     hostEl.style.display = '';
@@ -872,8 +988,25 @@
     if (shadowScanTick % 5 === 0) { try { shiftShadowTopBars(); } catch (e) {} }
   };
 
-  mo = new MutationObserver(layoutTick);
-  mo.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
+  // 图片查看器（PhotoSwipe）是打开时才动态挂到 body 上的：这里只监听 body 的直接子节点增删
+  // （不递归，避免评论区大量 DOM 变化时频繁触发）；挂上之后单独观察它自身的 class/style。
+  function watchPhotoViewer(node) {
+    if (!node || node.nodeType !== 1) return;
+    let pswp = null;
+    if (node.matches && node.matches('.pswp')) pswp = node;
+    else if (node.querySelector) pswp = node.querySelector('.pswp');
+    if (!pswp || !mo) return;
+    try { mo.observe(pswp, { attributes: true, attributeFilter: ['class', 'style', 'aria-hidden'] }); } catch (e) {}
+  }
+
+  mo = new MutationObserver((records) => {
+    layoutTick();
+    for (const rec of records) {
+      if (rec.type !== 'childList') continue;
+      for (const n of rec.addedNodes) watchPhotoViewer(n);
+    }
+  });
+  mo.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'], childList: true });
   const player = document.querySelector('.bpx-player-container');
   if (player) mo.observe(player, { attributes: true, attributeFilter: ['data-screen', 'class'] });
   layoutTimer = setInterval(layoutTick, 1000);
