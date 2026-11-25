@@ -6,8 +6,7 @@
   "permissions": [
     "tabs",
     "storage",
-    "scripting",
-    "webNavigation"
+    "scripting"
   ],
   "host_permissions": [
     "https://*.bilibili.com/*"
