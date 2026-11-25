@@ -143,7 +143,7 @@ function serial(fn) {
 let nativeTabUntil = 0;
 const nativeTabIds = new Set();
 let lastAbsorbAt = 0;
-const handledAbsorb = new Set(); // 已在某一处被归并处理的 tabId（onCreated / onBeforeNavigate 去重）
+const handledAbsorb = new Set(); // 已归并处理过的 tabId（30 秒内不再重复处理）
 function markHandled(tabId) {
   handledAbsorb.add(tabId);
   setTimeout(() => handledAbsorb.delete(tabId), 30000);
